@@ -1,0 +1,95 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+#include "utils.h"
+
+
+
+
+Person *person_map;
+unsigned int *knows_map, knows1_map;
+
+unsigned long person_length, knows_length, knwos1_length;
+
+FILE   *knows_out;
+FILE *o1;
+
+
+
+int main(int argc, char *argv[]) {
+	if (argc < 2) {
+		fprintf(stderr, "Usage: [datadir] \n");
+		exit(1);
+	}
+	
+	person_map   = (Person *)         mmapr(makepath(argv[1], "person",   "bin"), &person_length);
+	knows_map    = (unsigned int *)   mmapr(makepath(argv[1], "knows",    "bin"), &knows_length);
+        char* knows1_map= makepath(argv[1], "knows1",    "bin");
+	
+	unsigned int person_offset;
+	unsigned long knows_offset, knows_offset2;
+     	Person *person, *knows;
+
+        o1=open_binout(knows1_map);
+
+	
+	for (person_offset = 0; person_offset < person_length/sizeof(Person); person_offset++) {
+		person = &person_map[person_offset];
+		
+		if (person_offset > 0 && person_offset % REPORTING_N == 0) {
+			printf("%.2f%%\n", 100 * (person_offset * 1.0/(person_length/sizeof(Person))));
+		}
+
+                
+	
+	// check if friend lives in same city and likes artist 
+		for (knows_offset = person->knows_first; 
+			knows_offset < person->knows_first + person->knows_n; 
+			knows_offset++) {
+
+			knows = &person_map[knows_map[knows_offset]];
+			if (person->location != knows->location) continue; //check the same city
+
+
+			// friendship must be mutual
+			for (knows_offset2 = knows->knows_first; //moves trough the file
+				knows_offset2 < knows->knows_first + knows->knows_n;
+				knows_offset2++) {
+                                        if (knows_map[knows_offset2] == person_offset) {
+                                        fwrite(&knows_offset, sizeof(unsigned long), 1, o1);
+                                        printf("%u", knows_offset);
+                                        break;
+                                     }
+				}
+                              
+			}
+		}
+		
+	fclose(o1);	
+	}	
+	//the problem encountered is that when i create a new file knows1.bin with all the friends that live in the same city, prrson->knows_first needs to be updated based on the first write done on the knows1.bin file and after that we also need to update the person->knows_n which will be also different.
+	//So the files person.bin is open only for reading and the file knows only for wtriting which makes impossible to update a file while it is only opened for reading....and the same goes for the new file on which we cannot read but only write.
+	// this does not do anything yet. But it could...
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
